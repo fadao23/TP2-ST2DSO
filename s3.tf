@@ -59,17 +59,12 @@ resource "aws_s3_bucket" "financials" {
     git_repo             = "terragoat"
     yor_trace            = "0e012640-b597-4e5d-9378-d4b584aea913"
   })
-
 }
 
 resource "aws_s3_bucket" "operations" {
   # bucket is not encrypted
   # bucket does not have access logs
   bucket = "${local.resource_prefix.value}-operations"
-  acl    = "private"
-  versioning {
-    enabled = true
-  }
   force_destroy = true
   tags = merge({
     Name        = "${local.resource_prefix.value}-operations"
@@ -89,14 +84,6 @@ resource "aws_s3_bucket" "operations" {
 resource "aws_s3_bucket" "data_science" {
   # bucket is not encrypted
   bucket = "${local.resource_prefix.value}-data-science"
-  acl    = "private"
-  versioning {
-    enabled = true
-  }
-  logging {
-    target_bucket = "${aws_s3_bucket.logs.id}"
-    target_prefix = "log/"
-  }
   force_destroy = true
   tags = {
     git_commit           = "d68d2897add9bc2203a5ed0632a5cdd8ff8cefb0"
@@ -110,20 +97,19 @@ resource "aws_s3_bucket" "data_science" {
   }
 }
 
-resource "aws_s3_bucket" "logs" {
-  bucket = "${local.resource_prefix.value}-logs"
-  acl    = "private"
-  versioning {
-    enabled = true
-  }
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm     = "aws:kms"
-        kms_master_key_id = "${aws_kms_key.logs_key.arn}"
-      }
+resource "aws_s3_bucket_server_side_encryption_configuration" "data_science-encryption" {
+  bucket = aws_s3_bucket.data_science.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = "${aws_kms_key.logs_key.arn}"
+      sse_algorithm     = "aws:kms"
     }
   }
+}
+
+resource "aws_s3_bucket" "logs" {
+  bucket = "${local.resource_prefix.value}-logs"
   force_destroy = true
   tags = merge({
     Name        = "${local.resource_prefix.value}-logs"
@@ -138,4 +124,15 @@ resource "aws_s3_bucket" "logs" {
     git_repo             = "terragoat"
     yor_trace            = "01946fe9-aae2-4c99-a975-e9b0d3a4696c"
   })
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "logs-encryption" {
+  bucket = aws_s3_bucket.logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = "${aws_kms_key.logs_key.arn}"
+      sse_algorithm     = "aws:kms"
+    }
+  }
 }
